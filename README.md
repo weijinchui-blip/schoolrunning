@@ -6,7 +6,7 @@
 | 类型 | 微信小程序（半屏快捷方式 `weixin://launchapplet/?app_id=wx02c99293b6fb15c3`） |
 | AppID | `wx02c99293b6fb15c3` |
 | 版本 | `1.5.9 [8f5e3b22]`（`app.js` globalData.version） |
-| 主体 | 齐鲁工业大学（山东省科学院）体育体测 / 跑步打卡系统 |
+| 主体 | 齐鲁工业大学 跑步打卡系统 |
 | 后端 | `https://tytc.qlu.edu.cn`；统一认证 `https://sso.qlu.edu.cn`；人脸设备 `renlianweixin.qlu.edu.cn` |
 | 小程序包 | `%APPDATA%\Tencent\xwechat\radium\users\4befa0808ebdf5a2b19a88c046afa3f1\applet\packages\wx02c99293b6fb15c3\57\__APP__.wxapkg` |
 | 包体积 / MD5 | 1,036,887 B / `5973ab98ac7d839ce1eeac02b43fb6c5` |
