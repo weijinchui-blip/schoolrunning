@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>悲伤压缩包</title>
+    <style>
+/* =====================================================
+ * 悲伤压缩包 WebUI v.01.90
+ * 设计规范：浅灰白底 + 蓝紫柔和渐变强调 + 毛玻璃卡片
+ * ===================================================== */
+:root {
+    --bg: #f3f4f9;
+    --card: rgba(255, 255, 255, 0.72);
+    --card-strong: rgba(255, 255, 255, 0.88);
+
+    --text-1: #1c1c28;
+    --text-2: #55566a;
+    --text-3: #9394a8;
+
+    --grad: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
+    --grad-soft: linear-gradient(135deg, rgba(91, 124, 250, 0.14), rgba(139, 92, 246, 0.14));
+    --grad-danger: linear-gradient(135deg, #ff6a5e 0%, #ff3b30 100%);
+    --accent: #6270f4;
+    --accent-soft: rgba(98, 112, 244, 0.08);
+
+    --green: #30c15a;
+    --orange: #ff9500;
+    --red: #ff3b30;
+
+    --border-glass: 1px solid rgba(255, 255, 255, 0.85);
+    --border-hairline: rgba(90, 90, 140, 0.08);
+
+    --shadow-card: 0 8px 30px rgba(80, 80, 140, 0.07),
+                   0 2px 8px rgba(80, 80, 140, 0.04),
+                   inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --shadow-chip: 0 4px 12px rgba(108, 96, 250, 0.25);
+    --shadow-primary: 0 6px 18px rgba(108, 96, 250, 0.28);
+
+    --radius-card: 22px;
+    --radius-chip: 13px;
+    --radius-row: 14px;
+
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --ease-sheet: cubic-bezier(0.32, 0.72, 0.34, 1);
+
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+            "PingFang SC", system-ui, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    font-family: var(--font);
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text-1);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- 环境氛围光晕（右上 + 左下） ---------- */
+.ambient {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+}
+.ambient-tr {
+    top: -130px;
+    right: -90px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(124, 110, 255, 0.16), transparent 65%);
+}
+.ambient-bl {
+    bottom: -150px;
+    left: -110px;
+    width: 440px;
+    height: 440px;
+    background: radial-gradient(circle, rgba(255, 132, 199, 0.10), transparent 65%);
+}
+
+/* ---------- 页面骨架 ---------- */
+.app {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+.page {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 18px 96px;
+    display: none;
+    -webkit-overflow-scrolling: touch;
+}
+.page.active {
+    display: block;
+    animation: pageIn 0.35s var(--ease-soft) both;
+}
+@keyframes pageIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.page-title {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin: 6px 2px 18px;
+}
+
+/* ---------- 毛玻璃分组卡片 ---------- */
+.group-card {
+    background: var(--card);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: var(--border-glass);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    padding: 4px 16px 8px;
+    margin-bottom: 18px;
+}
+
+.group-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    padding: 14px 4px 8px;
+}
+.group-title.danger { color: var(--red); }
+
+/* ---------- 首页头部（状态信息分组） ---------- */
+.hero-card {
+    padding: 20px 18px 16px;
+}
+.hero-main {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.hero-logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 19px;
+    object-fit: cover;
+    box-shadow: 0 6px 18px rgba(80, 80, 140, 0.16);
+    flex-shrink: 0;
+}
+.hero-title-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+}
+.hero-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+}
+.version-pill {
+    background: var(--grad);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.3px;
+}
+.hero-sub {
+    font-size: 12.5px;
+    color: var(--text-3);
+    margin-top: 4px;
+}
+.hero-group-title {
+    padding-top: 18px;
+}
+.hero-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.status-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255, 255, 255, 0.66);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 999px;
+    padding: 7px 13px;
+    box-shadow: 0 2px 8px rgba(80, 80, 140, 0.06);
+    font-size: 12.5px;
+}
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c3c4d6;
+    flex-shrink: 0;
+    transition: background 0.35s, box-shadow 0.35s;
+}
+.status-dot.green  { background: var(--green);  box-shadow: 0 0 6px rgba(48, 193, 90, 0.55); }
+.status-dot.orange { background: var(--orange); box-shadow: 0 0 6px rgba(255, 149, 0, 0.55); }
+.status-dot.red    { background: var(--red);    box-shadow: 0 0 6px rgba(255, 59, 48, 0.55); }
+.status-label { color: var(--text-3); }
+.status-value { color: var(--text-1); font-weight: 600; }
+
+.refresh-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(80, 80, 140, 0.08);
+    transition: transform 0.3s var(--ease-spring);
+    flex-shrink: 0;
+}
+.refresh-btn:active { transform: scale(0.9); }
+.refresh-btn svg { width: 16px; height: 16px; }
+.refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- 功能列表行（功能控制分组） ---------- */
+.row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 13px 4px;
+    border: none;
+    border-radius: var(--radius-row);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: background 0.25s var(--ease-soft);
+    -webkit-user-select: none;
+    user-select: none;
+}
+.row + .row { border-top: 1px solid var(--border-hairline); border-radius: 0 0 var(--radius-row) var(--radius-row); }
+.row:active { background: var(--accent-soft); }
+
+.row-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-chip);
+    background: var(--grad);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-chip);
+    flex-shrink: 0;
+}
+.row-icon svg { width: 20px; height: 20px; }
+.row-icon.danger {
+    background: var(--grad-danger);
+    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.25);
+}
+
+.row-text { flex: 1; min-width: 0; }
+.row-title {
+    font-size: 15.5px;
+    font-weight: 600;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.row-desc {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+.row-arrow {
+    color: #c3c4d6;
+    flex-shrink: 0;
+    display: flex;
+}
+.row-arrow svg { width: 18px; height: 18px; }
+
+/* ---------- iOS 风格开关（渐变开启态） ---------- */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 30px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: #e4e4ec;
+    transition: background 0.3s var(--ease-soft);
+    overflow: hidden;
+}
+.switch-track::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: var(--grad);
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-soft);
+}
+.switch-track::before {
+    content: '';
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+    transition: transform 0.3s var(--ease-spring);
+    z-index: 1;
+}
+.switch input:checked + .switch-track::after { opacity: 1; }
+.switch input:checked + .switch-track::before { transform: translateX(20px); }
+
+/* ---------- 高危险卡片 ---------- */
+.group-card.danger-tint {
+    background: rgba(255, 59, 48, 0.05);
+    border-color: rgba(255, 59, 48, 0.12);
+}
+
+/* ---------- 执行结果终端（调试信息分组） ---------- */
+.result-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 14px;
+    padding-bottom: 8px;
+}
+.result-head .group-title { padding: 0; }
+.clear-btn {
+    background: rgba(255, 59, 48, 0.1);
+    color: var(--red);
+    border: none;
+    border-radius: 9px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.15s var(--ease-soft);
+}
+.clear-btn:active { transform: scale(0.94); }
+
+.terminal {
+    background: #eff0f6;
+    border: 1px solid rgba(90, 90, 140, 0.06);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    height: 220px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 11.8px;
+    line-height: 1.75;
+    color: #40415a;
+    white-space: pre-wrap;
+    word-break: break-all;
+    -webkit-overflow-scrolling: touch;
+}
+.terminal:empty::before {
+    content: '暂无执行记录';
+    color: #b0b1c7;
+    font-family: var(--font);
+    font-size: 12px;
+}
+.t-line { margin: 0; }
+.t-time {
+    color: #a3a4bd;
+    margin-right: 7px;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.t-error { color: var(--red); }
+.t-ok { color: #26a24d; }
+
+/* 执行结果卡片（横屏等高布局用：终端随卡片拉伸自适应填充） */
+.result-card { display: flex; flex-direction: column; }
+
+/* ---------- 弹窗（底部动作面板） ---------- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(28, 28, 46, 0.38);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.32s var(--ease-soft);
+}
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+.modal {
+    width: 100%;
+    max-width: 560px;
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    background: rgba(250, 250, 253, 0.98);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -12px 48px rgba(40, 40, 80, 0.18);
+    transform: translateY(105%);
+    transition: transform 0.4s var(--ease-sheet);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.modal-overlay.active .modal { transform: translateY(0); }
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 12px;
+}
+.modal-title {
+    font-size: 17px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.modal-title.danger { color: var(--red); }
+.modal-title svg { width: 19px; height: 19px; }
+.modal-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(120, 120, 140, 0.1);
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+}
+.modal-close:active { transform: scale(0.9); }
+.modal-close svg { width: 14px; height: 14px; }
+
+.modal-body {
+    padding: 4px 20px 8px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.modal-footer {
+    display: flex;
+    gap: 10px;
+    padding: 14px 20px 18px;
+}
+.modal-footer button {
+    flex: 1;
+    padding: 14px;
+    border-radius: 15px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.15s var(--ease-soft), opacity 0.2s, box-shadow 0.2s;
+}
+.btn-ghost {
+    background: rgba(120, 120, 140, 0.12);
+    color: var(--text-1);
+}
+.btn-ghost:active { transform: scale(0.97); }
+.btn-primary {
+    background: var(--grad);
+    color: #fff;
+    box-shadow: var(--shadow-primary);
+}
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled {
+    opacity: 0.4;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+.btn-danger {
+    background: var(--grad-danger);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(255, 59, 48, 0.28);
+}
+.btn-danger:active { transform: scale(0.97); }
+.btn-danger:disabled {
+    opacity: 0.4;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 13px 15px;
+    border-radius: 13px;
+    border: 1.5px solid rgba(90, 90, 140, 0.14);
+    background: #fff;
+    font-size: 14px;
+    color: var(--text-1);
+    outline: none;
+    font-family: var(--font-mono);
+    transition: border-color 0.25s, box-shadow 0.25s;
+}
+.modal-input:focus {
+    border-color: #8b7cf6;
+    box-shadow: 0 0 0 3.5px rgba(120, 105, 250, 0.12);
+}
+.modal-input::placeholder { color: #b6b7c9; }
+
+.modal-note {
+    font-size: 12.5px;
+    color: var(--text-3);
+    line-height: 1.7;
+    margin-top: 12px;
+}
+
+/* keybox 渠道选择 */
+.channel-option {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 15px;
+    border-radius: 17px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1.5px solid rgba(90, 90, 140, 0.1);
+    margin-bottom: 10px;
+    text-align: left;
+    font-family: inherit;
+    transition: border-color 0.2s, transform 0.15s var(--ease-soft);
+}
+.channel-option:active {
+    transform: scale(0.98);
+    border-color: rgba(120, 105, 250, 0.4);
+}
+.channel-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-chip);
+    background: var(--grad);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-chip);
+    flex-shrink: 0;
+}
+.channel-icon svg { width: 20px; height: 20px; }
+.channel-title { font-size: 15px; font-weight: 600; color: var(--text-1); }
+.channel-desc { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+/* 哈希读取状态条 */
+.hash-readout {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(98, 112, 244, 0.07);
+    border-radius: 12px;
+    padding: 10px 13px;
+    margin-bottom: 12px;
+    font-size: 12.5px;
+    color: var(--text-2);
+    line-height: 1.5;
+}
+.hash-readout svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--accent); }
+.hash-readout.ok { background: rgba(48, 193, 90, 0.08); }
+.hash-readout.ok svg { color: var(--green); }
+.hash-readout.warn { background: rgba(255, 149, 0, 0.09); }
+.hash-readout.warn svg { color: var(--orange); }
+.hash-retry {
+    margin-left: auto;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* TEE 警告文案 */
+.tee-warn {
+    color: var(--red);
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+.tee-desc {
+    color: var(--text-2);
+    font-size: 13px;
+    line-height: 1.7;
+    margin-bottom: 14px;
+}
+.tee-label {
+    color: var(--text-1);
+    font-size: 13.5px;
+    margin-bottom: 8px;
+}
+.tee-label strong { color: var(--red); }
+
+/* ---------- 关于页 ---------- */
+.about-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 30px 18px 26px;
+    text-align: center;
+}
+.about-logo {
+    width: 76px;
+    height: 76px;
+    border-radius: 23px;
+    object-fit: cover;
+    box-shadow: 0 8px 24px rgba(80, 80, 140, 0.18);
+}
+.about-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.about-name { font-size: 19px; font-weight: 700; }
+.about-tag {
+    background: var(--grad-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+.about-row-arrow {
+    color: #c3c4d6;
+    display: flex;
+}
+.about-row-arrow svg { width: 16px; height: 16px; }
+
+/* ---------- 底部导航 ---------- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(62px + env(safe-area-inset-bottom, 0));
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border-top: 1px solid rgba(90, 90, 140, 0.08);
+    display: flex;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    box-shadow: 0 -4px 24px rgba(60, 60, 110, 0.05);
+}
+.nav-btn {
+    flex: 1;
+    height: 62px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: var(--text-3);
+    font-family: inherit;
+    transition: color 0.25s var(--ease-soft);
+    padding: 0;
+}
+.nav-btn.active { color: #5b6cf0; }
+.nav-btn svg { width: 23px; height: 23px; }
+.nav-text { font-size: 10.5px; font-weight: 500; }
+
+/* ---------- 滚动条（隐藏，保留滚动能力） ---------- */
+.terminal::-webkit-scrollbar,
+.page::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+}
+.terminal,
+.page,
+.modal-body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+/* ---------- 响应式：平板 / 手机比例适配 ---------- */
+/* 小屏手机 */
+@media (max-width: 380px) {
+    .page { padding: 14px 14px 92px; }
+    .hero-logo { width: 56px; height: 56px; }
+    .hero-title { font-size: 20px; }
+}
+
+/* 平板 / 大屏（≥600px）：内容限宽居中，导航与弹窗同步适配 */
+@media (min-width: 600px) {
+    .page {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 26px 26px 116px;
+    }
+    .page-title { font-size: 28px; }
+    .hero-title { font-size: 24px; }
+    .terminal { height: 260px; }
+
+    .bottom-nav {
+        left: 50%;
+        right: auto;
+        width: min(680px, calc(100% - 36px));
+        transform: translateX(-50%);
+        border-radius: 22px 22px 0 0;
+        border: 1px solid rgba(90, 90, 140, 0.08);
+        border-bottom: none;
+    }
+
+    /* 弹窗由底部动作面板转为居中对话框 */
+    .modal-overlay { align-items: center; padding: 28px; }
+    .modal {
+        max-width: 480px;
+        border-radius: 26px;
+        box-shadow: 0 24px 64px rgba(40, 40, 80, 0.22);
+        transform: translateY(24px) scale(0.97);
+        padding-bottom: 0;
+    }
+    .modal-overlay.active .modal { transform: translateY(0) scale(1); }
+}
+
+/* 大平板竖屏 / 手机横屏（≥900px）：拉宽内容 */
+@media (min-width: 900px) {
+    .page { max-width: 880px; }
+    .bottom-nav { width: min(880px, calc(100% - 48px)); }
+    .row { padding: 15px 6px; }
+}
+
+/* 平板横屏 / 超大屏（≥1100px）：双栏网格，充分利用横向宽度 */
+@media (min-width: 1100px) {
+    .page {
+        max-width: 1200px;
+        padding: 30px 32px 132px;
+    }
+    .bottom-nav { width: min(1200px, calc(100% - 48px)); }
+
+    /* 页面内容转为双栏网格布局（同行卡片拉伸等高） */
+    .page.active {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        align-content: start;
+        align-items: stretch;
+    }
+    .group-card { margin-bottom: 0; }
+
+    /* 页面标题与首页状态卡保持通栏，其余卡片双栏排布 */
+    .page-title,
+    #page-home .hero-card { grid-column: 1 / -1; }
+    .page-title { margin-bottom: 0; }
+
+    /* 执行结果卡片与同排功能卡片等高：终端弹性填充剩余高度 */
+    .result-card .terminal {
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 280px;
+    }
+    .modal { max-width: 520px; }
+
+    /* 关于页横屏优化：hero 转横向布局，与联系我们双栏并排 */
+    #page-about .about-hero {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        padding: 32px 28px;
+        text-align: left;
+    }
+    #page-about .about-logo {
+        width: 92px;
+        height: 92px;
+        border-radius: 27px;
+        flex-shrink: 0;
+    }
+    #page-about .about-hero-text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+
+/* 手机横屏（矮屏）：压缩纵向间距，同样启用双栏利用宽度 */
+@media (max-height: 500px) and (orientation: landscape) {
+    .page {
+        padding: 12px 18px 88px;
+        max-width: 920px;
+    }
+    .hero-card { padding: 14px 16px 12px; }
+    .hero-logo { width: 48px; height: 48px; border-radius: 15px; }
+    .terminal { height: 150px; }
+
+    .bottom-nav { width: min(920px, calc(100% - 36px)); }
+
+    .page.active {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        align-content: start;
+        align-items: start;
+    }
+    .group-card { margin-bottom: 0; }
+    .page-title,
+    #page-home .hero-card { grid-column: 1 / -1; }
+    .page-title { margin-bottom: 0; }
+}
+
+/* ---------- BL 双界面模式（以设备解锁状态为准） ---------- */
+/* 未解锁（locked）：隐藏解锁版功能与工具页，显示 软重启/深度软重启/USB开关 */
+body.mode-locked .bl-unlocked { display: none !important; }
+body.mode-locked .nav-btn[data-page="page-tools"] { display: none !important; }
+body.mode-locked #page-tools { display: none !important; }
+/* 已解锁 / 未知（unlocked）：完整界面 */
+body.mode-unlocked .bl-locked { display: none !important; }
+    </style>
+</head>
+<body class="mode-unlocked">
+    <!-- 内联 SVG 图标库（无外部资源） -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.7V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.7"/></symbol>
+        <symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4.5"/><path d="M12 8h.01"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/></symbol>
+        <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></symbol>
+        <symbol id="i-package" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+        <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+        <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></symbol>
+        <symbol id="i-hash" viewBox="0 0 24 24"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></symbol>
+        <symbol id="i-blocks" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></symbol>
+        <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+        <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+        <symbol id="i-cloud-down" viewBox="0 0 24 24"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></symbol>
+        <symbol id="i-drive" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></symbol>
+        <symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+        <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+        <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+        <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+        <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.36 6.64a9 9 0 1 1-12.72 0"/></symbol>
+    </svg>
+
+    <!-- 环境氛围光晕 -->
+    <div class="ambient ambient-tr"></div>
+    <div class="ambient ambient-bl"></div>
+
+    <div class="app">
+        <!-- ===================== 首页 ===================== -->
+        <div class="page active" id="page-home">
+            <!-- 状态信息分组 -->
+            <header class="group-card hero-card">
+                <div class="hero-main">
+                    <img src="bszip.png" alt="Logo" class="hero-logo">
+                    <div class="hero-info">
+                        <div class="hero-title-row">
+                            <h1 class="hero-title">悲伤压缩包</h1>
+                            <span class="version-pill">v.01.90</span>
+                        </div>
+                        <p class="hero-sub">让隐藏环境变得简单</p>
+                    </div>
+                </div>
+                <h2 class="group-title hero-group-title">设备状态 · 实时检测</h2>
+                <div class="hero-status">
+                    <div class="status-pill" id="pillRoot">
+                        <span class="status-dot" id="dotRoot"></span>
+                        <span class="status-label">Root管理器</span>
+                        <span class="status-value" id="valRoot">检测中…</span>
+                    </div>
+                    <div class="status-pill" id="pillBl">
+                        <span class="status-dot" id="dotBl"></span>
+                        <span class="status-label">真实BL锁状态</span>
+                        <span class="status-value" id="valBl">检测中…</span>
+                    </div>
+                    <button class="refresh-btn" id="btnRefresh" title="重新检测">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- 功能控制分组 -->
+            <section class="group-card">
+                <h2 class="group-title">功能控制</h2>
+
+                <button class="row bl-unlocked" data-action="keybox">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-key"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">更新 Keybox 文件</span>
+                        <span class="row-desc">两种渠道：GitHub 在线 / 程序内置</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <button class="row bl-unlocked" data-action="ts-pkg">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-package"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">更新 TS 包名</span>
+                        <span class="row-desc">同步全部应用包名到 target.txt</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <button class="row bl-locked" data-action="soft-reboot">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">软重启</span>
+                        <span class="row-desc">重载 Zygisk/LSPosed 注入和激活大部分模块</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <button class="row bl-locked" data-action="deep-reboot">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-power"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">深度软重启（加强）</span>
+                        <span class="row-desc">属性存储重建，适合加载系统属性修改，如改机型模块</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <button class="row bl-locked" data-action="fix-network">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-globe"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">修复越狱无网络</span>
+                        <span class="row-desc">先尝试软重启恢复，无效再使用此功能</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <button class="row bl-locked" data-action="jailbreak-hide">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-shield-check"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">越狱隐藏环境</span>
+                        <span class="row-desc">适用越狱隐藏免解锁ksu，部分机型会卡死重启</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <button class="row" data-action="hidden-apps">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-eye-off"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">配置隐藏应用列表</span>
+                        <span class="row-desc">一键还原 HMA 隐藏应用配置</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <button class="row bl-unlocked" data-action="hash">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-hash"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">更新哈希值</span>
+                        <span class="row-desc">自动读取当前 vbmeta 摘要并更新</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <button class="row bl-locked" data-action="clean-traces">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkles"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">清理usb和玩机痕迹</span>
+                        <span class="row-desc">TWRP / 痕迹残留 / Luna / 春秋 / Momo / Hunter / USB 一键合并清理</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+
+                <div class="row bl-locked">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plug"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">USB 调试开关</span>
+                        <span class="row-desc">系统 ADB 调试总开关</span>
+                    </span>
+                    <label class="switch">
+                        <input type="checkbox" id="homeUsbDebugToggle">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+                <div class="row bl-locked">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">USB 调试（安全设置）</span>
+                        <span class="row-desc">允许安全设置内调试授权</span>
+                    </span>
+                    <label class="switch">
+                        <input type="checkbox" id="homeUsbSecureToggle">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- 调试信息分组 -->
+            <section class="group-card">
+                <div class="result-head">
+                    <h2 class="group-title">执行结果</h2>
+                    <button class="clear-btn" id="btnClearHome">清空</button>
+                </div>
+                <div class="terminal" id="resultBox"></div>
+            </section>
+        </div>
+
+        <!-- ===================== 工具页 ===================== -->
+        <div class="page" id="page-tools">
+            <h1 class="page-title">玩机工具</h1>
+
+            <section class="group-card">
+                <h2 class="group-title">USB 相关</h2>
+                <div class="row">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plug"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">USB 调试开关</span>
+                        <span class="row-desc">系统 ADB 调试总开关</span>
+                    </span>
+                    <label class="switch">
+                        <input type="checkbox" id="usbDebugToggle">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+                <div class="row">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lock"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">USB 调试（安全设置）</span>
+                        <span class="row-desc">允许安全设置内调试授权</span>
+                    </span>
+                    <label class="switch">
+                        <input type="checkbox" id="usbSecureToggle">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+            </section>
+
+            <section class="group-card">
+                <h2 class="group-title">提高隐藏 · 清理残留</h2>
+                <button class="row" data-action="fix-lsposed">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-blocks"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">清理 LSPosed 痕迹</span>
+                        <span class="row-desc">删除应用目录下的 base.odex 缓存</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+                <button class="row" data-action="clean-traces">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkles"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">清理usb和玩机痕迹</span>
+                        <span class="row-desc">TWRP / 痕迹残留 / Luna / 春秋 / Momo / Hunter / USB 一键合并清理</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+            </section>
+
+            <section class="group-card danger-tint">
+                <h2 class="group-title danger">高危险功能</h2>
+                <button class="row" data-action="tee-burn">
+                    <span class="row-icon danger"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-flame"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">TEE 烧录功能</span>
+                        <span class="row-desc">不可逆操作，请谨慎执行</span>
+                    </span>
+                    <span class="row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+            </section>
+
+            <section class="group-card result-card">
+                <div class="result-head">
+                    <h2 class="group-title">执行结果</h2>
+                    <button class="clear-btn" id="btnClearTools">清空</button>
+                </div>
+                <div class="terminal" id="toolsResultBox"></div>
+            </section>
+        </div>
+
+        <!-- ===================== 关于页 ===================== -->
+        <div class="page" id="page-about">
+            <h1 class="page-title">关于模块</h1>
+
+            <section class="group-card about-hero">
+                <img src="bszip.png" alt="Logo" class="about-logo">
+                <div class="about-hero-text">
+                    <div class="about-name-row">
+                        <span class="about-tag">开发者</span>
+                        <h3 class="about-name">悲伤压缩包</h3>
+                    </div>
+                    <p class="hero-sub">让隐藏环境变得简单</p>
+                </div>
+            </section>
+
+            <section class="group-card">
+                <h2 class="group-title">联系我们</h2>
+                <button class="row" data-url="https://bszip.me">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-globe"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">更新地址</span>
+                    </span>
+                    <span class="about-row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+                <button class="row" data-url="https://space.bilibili.com/1429615650">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-message"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">社交媒体</span>
+                    </span>
+                    <span class="about-row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+                <button class="row" data-url="https://qun.qq.com/universal-share/share?ac=1&authKey=iwIfcz9z6cQAPbwTULCGblQJueVYpLIT28NGmzBa/aNsvAfYMOFJWPoK/0XTOiSo&busi_data=eyJncm91cENvZGUiOiIxMDgzMjQ4Njk2IiwidG9rZW4iOiJTRlp1aWVtTnpaSEtBSzZjeS9CTTMrZ0k5bDgwMUhsc0QzcUhjMkowQ3FWdnZ4UEtTQ24zdnRQdExUUUt0VEgzIiwidWluIjoiMzE4MTQxMjg1In0=&data=FiZzsyFPtTTg4jyiF5_y9zF3hs6gS4-kwS9RDmi9d378n_G5kPIM5wlq_jmAhJDT3MQANoPSWrY7HB5lJmw1nQa0v25bA1EtSQSurFMKmq0&svctype=5&tempid=h5_group_info">
+                    <span class="row-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg></span>
+                    <span class="row-text">
+                        <span class="row-title">企鹅交流群</span>
+                        <span class="row-desc">160023325</span>
+                    </span>
+                    <span class="about-row-arrow"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chevron"/></svg></span>
+                </button>
+            </section>
+        </div>
+
+        <!-- ===================== 弹窗：Keybox 渠道选择 ===================== -->
+        <div class="modal-overlay" id="keyboxModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-key"/></svg>
+                        更新 Keybox 文件
+                    </h3>
+                    <button class="modal-close" data-close="keyboxModal"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg></button>
+                </div>
+                <div class="modal-body">
+                    <button class="channel-option" data-channel="github">
+                        <span class="channel-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cloud-down"/></svg></span>
+                        <span>
+                            <span class="channel-title">GitHub 渠道</span>
+                            <div class="channel-desc">在线拉取最新密钥并自动解码，需联网</div>
+                        </span>
+                    </button>
+                    <button class="channel-option" data-channel="local">
+                        <span class="channel-icon"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-drive"/></svg></span>
+                        <span>
+                            <span class="channel-title">程序内置</span>
+                            <div class="channel-desc">使用模块内置密钥，离线可用</div>
+                        </span>
+                    </button>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-ghost" data-close="keyboxModal">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== 弹窗：更新哈希值 ===================== -->
+        <div class="modal-overlay" id="hashModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-hash"/></svg>
+                        更新哈希值
+                    </h3>
+                    <button class="modal-close" data-close="hashModal"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg></button>
+                </div>
+                <div class="modal-body">
+                    <div class="hash-readout" id="hashReadout">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-hash"/></svg>
+                        <span id="hashReadoutText">正在自动读取当前设备哈希值…</span>
+                        <span class="hash-retry" id="hashRetry">重新读取</span>
+                    </div>
+                    <input type="text" class="modal-input" id="hashInput" placeholder="哈希值将自动读取，也可手动输入">
+                    <p class="modal-note">点击确定后将创建重置模块，重启手机生效。</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-ghost" data-close="hashModal">取消</button>
+                    <button class="btn-primary" id="hashConfirmBtn" disabled>确定更新</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== 弹窗：TEE 危险操作确认 ===================== -->
+        <div class="modal-overlay" id="teeModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title danger">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert"/></svg>
+                        危险操作确认
+                    </h3>
+                    <button class="modal-close" data-close="teeModal"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg></button>
+                </div>
+                <div class="modal-body">
+                    <p class="tee-warn">TEE 烧录为不可逆操作！</p>
+                    <p class="tee-desc">
+                        此操作将永久修改设备 TEE 分区，可能导致丢失设备原有密钥。<br>
+                        请先备份 persist.img 分区，并确认您清楚知道自己在做什么！
+                    </p>
+                    <p class="tee-label">请输入 <strong>我已知晓</strong> 以继续：</p>
+                    <input type="text" class="modal-input" id="teeConfirmInput" placeholder="在此输入…">
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-ghost" data-close="teeModal">取消</button>
+                    <button class="btn-danger" id="teeConfirmBtn" disabled>确定刷入</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== 弹窗：软重启确认 ===================== -->
+        <div class="modal-overlay" id="rebootModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-power"/></svg>
+                        <span id="rebootModalTitle">重启确认</span>
+                    </h3>
+                    <button class="modal-close" data-close="rebootModal"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x"/></svg></button>
+                </div>
+                <div class="modal-body">
+                    <p class="tee-desc" id="rebootModalDesc"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-ghost" data-close="rebootModal">取消</button>
+                    <button class="btn-primary" id="rebootConfirmBtn">确认执行</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== 底部导航 ===================== -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-page="page-home">
+                <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-home"/></svg>
+                <span class="nav-text">首页</span>
+            </button>
+            <button class="nav-btn" data-page="page-tools">
+                <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-tools"/></svg>
+                <span class="nav-text">工具</span>
+            </button>
+            <button class="nav-btn" data-page="page-about">
+                <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-info"/></svg>
+                <span class="nav-text">关于</span>
+            </button>
+        </nav>
+    </div>
+
+    <script type="module">
+/* =====================================================
+ * 悲伤压缩包 WebUI v.01.90 业务逻辑
+ * KSU 官方 API：exec / toast
+ * ===================================================== */
+
+const APP_VERSION = 'v.01.90';
+const MODDIR = '/data/adb/modules/bszip/webroot';
+const TOOLS_SCRIPT = MODDIR + '/bin/tools.sh';
+
+/* ---------- KSU API 封装（对齐官方 kernelsu 包） ---------- */
+const ksu = globalThis.ksu || null;
+
+function exec(command, options = {}) {
+    return new Promise((resolve) => {
+        if (!ksu || typeof ksu.exec !== 'function') {
+            resolve({ errno: -1, stdout: '', stderr: 'KernelSU API 不可用，请通过 Root 管理器打开 WebUI' });
+            return;
+        }
+        const cbName = `__ksu_exec_cb_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+        globalThis[cbName] = (errno, stdout, stderr) => {
+            delete globalThis[cbName];
+            resolve({ errno: errno || 0, stdout: stdout || '', stderr: stderr || '' });
+        };
+        try {
+            ksu.exec(command, JSON.stringify(options), cbName);
+        } catch (err) {
+            delete globalThis[cbName];
+            resolve({ errno: -1, stdout: '', stderr: (err && err.message) || 'exec 调用异常' });
+        }
+    });
+}
+
+function toast(msg) {
+    if (ksu && typeof ksu.toast === 'function') {
+        try { ksu.toast(msg); return; } catch (e) { /* ignore */ }
+    }
+    console.log('[toast]', msg);
+}
+
+/* ---------- DOM 工具 ---------- */
+const $ = (id) => document.getElementById(id);
+
+function openModal(id) { $(id).classList.add('active'); }
+function closeModal(id) { $(id).classList.remove('active'); }
+
+/* ---------- 终端日志 ---------- */
+function getActiveTerminal() {
+    const page = document.querySelector('.page.active');
+    return (page && page.querySelector('.terminal')) || $('resultBox');
+}
+
+function log(text, type, box) {
+    const target = box || getActiveTerminal();
+    if (!target) return;
+    const now = new Date();
+    const ts = [now.getHours(), now.getMinutes(), now.getSeconds()]
+        .map((n) => String(n).padStart(2, '0')).join(':');
+    const lines = String(text == null ? '' : text).split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i] === '' && i === lines.length - 1) continue;
+        const p = document.createElement('p');
+        p.className = 't-line' + (type === 'error' ? ' t-error' : type === 'ok' ? ' t-ok' : '');
+        const t = document.createElement('span');
+        t.className = 't-time';
+        t.textContent = `[${ts}]`;
+        p.appendChild(t);
+        p.appendChild(document.createTextNode(lines[i]));
+        target.appendChild(p);
+    }
+    target.scrollTop = target.scrollHeight;
+}
+
+/* ---------- 命令执行（后台运行防卡顿 + 实时输出，单任务锁） ----------
+ * 原理：ksu.exec 原生层同步阻塞 JS 线程，长命令会冻结整个界面。
+ * 改为：脚本后台运行（输出重定向到日志文件），exec 立即返回；
+ *       前端每 400ms 轮询一次轻量 cat 增量读取输出与退出码。
+ * 效果：界面全程可交互，且长任务输出实时流式显示。 */
+let running = false;
+
+async function runToolCommand(cmd, args, name) {
+    if (running) { toast('请等待当前任务完成'); return null; }
+    const term = getActiveTerminal();
+    running = true;
+    log(`--- 开始执行: ${name} ---`, '', term);
+
+    const runId = Date.now();
+    const logFile = `/data/local/tmp/bszip_run_${runId}.log`;
+    const exitFile = `/data/local/tmp/bszip_run_${runId}.exit`;
+    const marker = `__BSZIP_POLL_${runId}__`;
+
+    let line = `sh "${TOOLS_SCRIPT}" ${cmd}`;
+    if (args != null && args !== '') line += ` ${args}`;
+
+    // 后台启动：脚本输出全部重定向到文件，不占用 exec 管道，调用立即返回
+    const startCmd =
+        'rm -f /data/local/tmp/bszip_run_*.log /data/local/tmp/bszip_run_*.exit 2>/dev/null; ' +
+        `( ${line} > "${logFile}" 2>&1; echo $? > "${exitFile}" ) > /dev/null 2>&1 &`;
+    const startRes = await exec(startCmd);
+    if (startRes.errno === -1) {
+        log(startRes.stderr || 'exec 调用失败', 'error', term);
+        log('--- 执行异常 (code=-1) ---', 'error', term);
+        running = false;
+        return null;
+    }
+
+    // 轮询：增量读取日志 + 检测退出码文件
+    return new Promise((resolve) => {
+        let shownLen = 0;
+        const startedAt = Date.now();
+        const POLL_MS = 400;
+        const MAX_MS = 10 * 60 * 1000;
+
+        const finish = (result) => {
+            exec(`rm -f "${logFile}" "${exitFile}" 2>/dev/null`);
+            running = false;
+            resolve(result);
+        };
+
+        const pollOnce = async () => {
+            const res = await exec(
+                `cat "${logFile}" 2>/dev/null; echo "${marker}$(cat "${exitFile}" 2>/dev/null || echo RUNNING)"`
+            );
+            const out = String(res.stdout || '');
+            const idx = out.lastIndexOf(marker);
+            const exitVal = idx >= 0 ? out.slice(idx + marker.length).trim() : 'RUNNING';
+            const content = idx >= 0 ? out.slice(0, idx) : '';
+
+            if (content.length > shownLen) {
+                const fresh = content.slice(shownLen).replace(/\n+$/, '');
+                if (fresh) log(fresh, '', term);
+                shownLen = content.length;
+            }
+
+            if (exitVal !== 'RUNNING') {
+                const code = parseInt(exitVal, 10);
+                if (code === 0) {
+                    log(`--- 执行完成: ${name} ---`, 'ok', term);
+                    toast(`${name} 完成`);
+                } else {
+                    log(`--- 执行异常 (code=${Number.isFinite(code) ? code : '?'}) ---`, 'error', term);
+                }
+                finish({ errno: Number.isFinite(code) ? code : -1, stdout: content, stderr: '' });
+                return;
+            }
+
+            if (Date.now() - startedAt > MAX_MS) {
+                log('--- 执行超时：脚本仍在后台运行，请稍后查看结果 ---', 'error', term);
+                finish({ errno: -2, stdout: content, stderr: 'timeout' });
+                return;
+            }
+            setTimeout(pollOnce, POLL_MS);
+        };
+
+        pollOnce();
+    });
+}
+
+/* ---------- 首页状态：Root 管理器 + BL 锁（实时检测） ---------- */
+function setPill(dotId, valId, dotClass, text) {
+    const dot = $(dotId);
+    const val = $(valId);
+    if (dot) dot.className = 'status-dot' + (dotClass ? ' ' + dotClass : '');
+    if (val) val.textContent = text;
+}
+
+async function refreshDeviceStatus(manual) {
+    setPill('dotRoot', 'valRoot', '', '检测中…');
+    setPill('dotBl', 'valBl', '', '检测中…');
+    const btn = $('btnRefresh');
+    if (btn) btn.classList.add('spinning');
+
+    const res = await exec(`sh "${TOOLS_SCRIPT}" status 2>&1`);
+    const map = {};
+    String(res.stdout || '').split('\n').forEach((line) => {
+        const m = line.match(/^([A-Z_]+)=(.*)$/);
+        if (m) map[m[1]] = m[2].trim();
+    });
+
+    // Root 管理器
+    const mgr = map.ROOT || '';
+    if (mgr && mgr !== 'unknown') {
+        setPill('dotRoot', 'valRoot', 'green', mgr);
+    } else {
+        setPill('dotRoot', 'valRoot', 'red', '未检测到');
+    }
+
+    // BL 锁真实状态（status 命令基于 bltruth 取证逻辑裁决）
+    const bl = (map.BL || 'unknown').toLowerCase();
+    if (bl === 'locked') setPill('dotBl', 'valBl', 'green', '已锁定');
+    else if (bl === 'unlocked') setPill('dotBl', 'valBl', 'orange', '已解锁');
+    else setPill('dotBl', 'valBl', '', '未知');
+
+    // 以设备解锁状态为准切换两套界面
+    applyInterfaceMode(bl);
+
+    if (btn) btn.classList.remove('spinning');
+    if (manual) toast('设备状态已刷新');
+}
+
+/* ---------- BL 双界面模式切换（以设备解锁状态为准） ---------- */
+let interfaceMode = 'unlocked';
+
+function applyInterfaceMode(bl) {
+    const mode = bl === 'locked' ? 'locked' : 'unlocked';
+    if (mode === interfaceMode) return;
+    interfaceMode = mode;
+    document.body.classList.toggle('mode-locked', mode === 'locked');
+    document.body.classList.toggle('mode-unlocked', mode !== 'locked');
+    if (mode === 'locked') {
+        // 未解锁界面：去除工具页，若当前停留在工具页则跳回首页
+        const toolsPage = $('page-tools');
+        if (toolsPage && toolsPage.classList.contains('active')) switchPage('page-home');
+        initHomeUsbToggles();
+        log('检测到 BL 未解锁，已切换至未解锁界面');
+    }
+}
+
+/* ---------- 功能1：更新 keybox（两种渠道） ---------- */
+function runKeyboxUpdate(channel) {
+    closeModal('keyboxModal');
+    const label = channel === 'github' ? 'GitHub 渠道' : '程序内置';
+    runToolCommand('keybox', channel, `更新keybox文件（${label}）`);
+}
+
+/* ---------- 功能5：更新哈希值（自动读取 vbmeta 摘要） ---------- */
+async function readVbmetaDigest() {
+    // 按需求优先使用 su -c getprop 读取，失败回退直接 getprop
+    let res = await exec('su -c getprop ro.boot.vbmeta.digest 2>/dev/null');
+    let val = String(res.stdout || '').trim();
+    if (!val) {
+        res = await exec('getprop ro.boot.vbmeta.digest 2>/dev/null');
+        val = String(res.stdout || '').trim();
+    }
+    // 仅接受十六进制（含冒号分隔）格式的摘要
+    return /^[0-9a-fA-F:]+$/.test(val) ? val : '';
+}
+
+async function fillHashValue() {
+    const readout = $('hashReadout');
+    const readoutText = $('hashReadoutText');
+    const input = $('hashInput');
+    const confirmBtn = $('hashConfirmBtn');
+    readout.className = 'hash-readout';
+    readoutText.textContent = '正在自动读取当前设备哈希值…';
+    const val = await readVbmetaDigest();
+    // 用户可能已关闭弹窗，关闭后不再更新界面
+    if (!$('hashModal').classList.contains('active')) return;
+    if (val) {
+        input.value = val;
+        confirmBtn.disabled = false;
+        readout.className = 'hash-readout ok';
+        readoutText.textContent = '已自动读取当前设备 vbmeta 哈希值';
+    } else {
+        readout.className = 'hash-readout warn';
+        readoutText.textContent = '未能自动读取哈希值，请手动输入后执行';
+    }
+}
+
+async function openHashModal() {
+    $('hashInput').value = '';
+    $('hashConfirmBtn').disabled = true;
+    openModal('hashModal');
+    fillHashValue();
+}
+
+function confirmHash() {
+    const val = $('hashInput').value.trim();
+    if (!val) { toast('请输入哈希值'); return; }
+    // 仅接受十六进制（含冒号分隔），与自动读取校验一致，避免特殊字符破坏命令行
+    if (!/^[0-9a-fA-F:]+$/.test(val)) { toast('哈希值格式不正确，应为十六进制字符'); return; }
+    closeModal('hashModal');
+    runToolCommand('hash', `"${val}"`, '更新哈希值');
+}
+
+/* ---------- 首页功能分发 ---------- */
+const homeActions = {
+    'keybox': () => openModal('keyboxModal'),
+    'ts-pkg': () => runToolCommand('ts-pkg', null, '更新TS包名'),
+    'hidden-apps': () => runToolCommand('hidden-apps', null, '配置隐藏应用列表'),
+    'hash': openHashModal,
+    'soft-reboot': () => openRebootModal('soft'),
+    'deep-reboot': () => openRebootModal('deep'),
+    'fix-network': () => runToolCommand('fix-network', null, '修复越狱无网络'),
+    'jailbreak-hide': () => openRebootModal('jailbreak-hide'),
+};
+
+/* ---------- 软重启 / 深度软重启（未解锁界面） ---------- */
+let pendingReboot = null;
+
+function openRebootModal(type) {
+    pendingReboot = type;
+    if (type === 'soft') {
+        $('rebootModalTitle').textContent = '软重启确认';
+        $('rebootModalDesc').innerHTML =
+            '将重启 Zygote 与系统框架，重载 Zygisk/LSPosed 等注入模块。<br>' +
+            '当前所有应用（含本界面）将被关闭并重新启动，adb 连接不断线，约 10~30 秒。';
+    } else if (type === 'deep') {
+        $('rebootModalTitle').textContent = '深度软重启确认';
+        $('rebootModalDesc').innerHTML =
+            '将执行用户态重启：/data 重新挂载、属性存储重建，适合加载系统属性修改（如改机型模块）。<br>' +
+            '耗时约 1~3 分钟，期间 adb 与本界面将断开，请耐心等待设备自行恢复。';
+    } else {
+        $('rebootModalTitle').textContent = '越狱隐藏环境确认';
+        $('rebootModalDesc').innerHTML =
+            '将执行 PID 轮回（压低 pid_max + fork 循环），隐藏越狱环境。<br>' +
+            '部分机型可能出现卡死重启，确认继续？';
+    }
+    openModal('rebootModal');
+}
+
+/* ---------- 工具页功能分发 ---------- */
+const toolsActions = {
+    'fix-lsposed': '清理LSPosed痕迹',
+    'clean-traces': '清理usb和玩机痕迹',
+};
+
+function openTeeModal() {
+    $('teeConfirmInput').value = '';
+    $('teeConfirmBtn').disabled = true;
+    openModal('teeModal');
+}
+
+function confirmTeeBurn() {
+    closeModal('teeModal');
+    runToolCommand('tee-burn', null, 'TEE烧录');
+}
+
+/* ---------- 工具页 USB 开关（保持旧版逻辑） ---------- */
+let usbToggleInit = false;
+
+async function initUsbToggles() {
+    if (usbToggleInit) return;
+    usbToggleInit = true;
+    const res = await exec(`sh "${TOOLS_SCRIPT}" usb-check 2>&1`);
+    const code = String(res.stdout || '').trim().replace(/\s/g, '');
+    const usbDebug = $('usbDebugToggle');
+    const usbSecure = $('usbSecureToggle');
+    if (usbDebug) usbDebug.checked = code.charAt(0) === '1';
+    if (usbSecure) usbSecure.checked = code.charAt(1) === '1';
+}
+
+/* ---------- 首页 USB 开关（未解锁界面，功能控制分组内） ---------- */
+let homeUsbToggleInit = false;
+
+async function initHomeUsbToggles() {
+    if (homeUsbToggleInit) return;
+    homeUsbToggleInit = true;
+    const res = await exec(`sh "${TOOLS_SCRIPT}" usb-check 2>&1`);
+    const code = String(res.stdout || '').trim().replace(/\s/g, '');
+    const usbDebug = $('homeUsbDebugToggle');
+    const usbSecure = $('homeUsbSecureToggle');
+    if (usbDebug) usbDebug.checked = code.charAt(0) === '1';
+    if (usbSecure) usbSecure.checked = code.charAt(1) === '1';
+}
+
+function bindUsbSwitch(id, target, label) {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+        const want = el.checked;
+        log(`正在${want ? '开启' : '关闭'}${label}...`);
+        exec(`sh "${TOOLS_SCRIPT}" usb-switch ${target} ${want ? '1' : '0'} 2>&1`).then((res) => {
+            if (res.stdout && res.stdout.trim()) log(res.stdout.trim());
+            if (res.stderr && res.stderr.trim()) log(res.stderr.trim(), 'error');
+            toast(`${label}已${want ? '开启' : '关闭'}`);
+        });
+    });
+}
+
+/* ---------- 页面切换 ---------- */
+function switchPage(pageId) {
+    document.querySelectorAll('.page').forEach((p) => p.classList.toggle('active', p.id === pageId));
+    document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.page === pageId));
+    if (pageId === 'page-tools') initUsbToggles();
+}
+
+/* ---------- 外链打开 ---------- */
+function openUrl(url) {
+    exec(`am start -a android.intent.action.VIEW -d "${url}"`).catch(() => {});
+}
+
+/* ---------- 初始化 ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+    // 首页 + 工具页所有 data-action 按钮
+    document.querySelectorAll('[data-action]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const action = btn.dataset.action;
+            if (homeActions[action]) { homeActions[action](); return; }
+            if (toolsActions[action]) { runToolCommand(action, null, toolsActions[action]); return; }
+            if (action === 'tee-burn') openTeeModal();
+        });
+    });
+
+    // 关于页外链
+    document.querySelectorAll('[data-url]').forEach((btn) => {
+        btn.addEventListener('click', () => openUrl(btn.dataset.url));
+    });
+
+    // 底部导航
+    document.querySelectorAll('.nav-btn').forEach((btn) => {
+        btn.addEventListener('click', () => switchPage(btn.dataset.page));
+    });
+
+    // 状态刷新（手动 + 定时轮询）
+    $('btnRefresh').addEventListener('click', () => refreshDeviceStatus(true));
+    setInterval(() => refreshDeviceStatus(false), 30000);
+
+    // Keybox 渠道选择
+    document.querySelectorAll('.channel-option').forEach((opt) => {
+        opt.addEventListener('click', () => runKeyboxUpdate(opt.dataset.channel));
+    });
+
+    // 哈希弹窗
+    $('hashConfirmBtn').addEventListener('click', confirmHash);
+    $('hashInput').addEventListener('input', () => {
+        $('hashConfirmBtn').disabled = $('hashInput').value.trim().length === 0;
+    });
+    $('hashRetry').addEventListener('click', fillHashValue);
+
+    // TEE 弹窗
+    $('teeConfirmBtn').addEventListener('click', confirmTeeBurn);
+    $('teeConfirmInput').addEventListener('input', () => {
+        $('teeConfirmBtn').disabled = $('teeConfirmInput').value.trim() !== '我已知晓';
+    });
+
+    // 软重启 / 深度软重启 / 越狱隐藏环境确认弹窗
+    $('rebootConfirmBtn').addEventListener('click', () => {
+        closeModal('rebootModal');
+        const type = pendingReboot;
+        pendingReboot = null;
+        if (type === 'soft') runToolCommand('soft-reboot', null, '软重启');
+        else if (type === 'deep') runToolCommand('deep-reboot', null, '深度软重启');
+        else if (type === 'jailbreak-hide') runToolCommand('jailbreak-hide', null, '越狱隐藏环境');
+    });
+
+    // 弹窗关闭（按钮 + 点击遮罩）
+    document.querySelectorAll('[data-close]').forEach((btn) => {
+        btn.addEventListener('click', () => closeModal(btn.dataset.close));
+    });
+    document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.classList.remove('active');
+        });
+    });
+
+    // 终端清空
+    $('btnClearHome').addEventListener('click', () => { $('resultBox').innerHTML = ''; });
+    $('btnClearTools').addEventListener('click', () => { $('toolsResultBox').innerHTML = ''; });
+
+    // USB 开关（工具页保持旧版逻辑；首页为未解锁界面备用）
+    bindUsbSwitch('usbDebugToggle', 'adb', 'USB调试');
+    bindUsbSwitch('usbSecureToggle', 'secure', 'USB调试（安全设置）');
+    bindUsbSwitch('homeUsbDebugToggle', 'adb', 'USB调试');
+    bindUsbSwitch('homeUsbSecureToggle', 'secure', 'USB调试（安全设置）');
+    initHomeUsbToggles();
+
+    // 就绪
+    log(`悲伤压缩包 ${APP_VERSION} 已就绪`);
+    refreshDeviceStatus(false);
+});
+    </script>
+</body>
+</html>

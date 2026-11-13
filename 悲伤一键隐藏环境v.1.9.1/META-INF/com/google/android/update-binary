@@ -1,0 +1,48 @@
+#!/sbin/sh
+
+# Magisk 安装器
+OUTFD=$2
+APK="$3"
+COMMONDIR=$INSTALLER/common
+CHROMEDIR=$INSTALLER/chromeos
+
+if [ $ARCH = "arm64" ]; then
+  BBDIR=$INSTALLER/lib/arm64
+elif [ $ARCH = "arm" ]; then
+  BBDIR=$INSTALLER/lib/arm
+elif [ $ARCH = "x64" ]; then
+  BBDIR=$INSTALLER/lib/x86_64
+elif [ $ARCH = "x86" ]; then
+  BBDIR=$INSTALLER/lib/x86
+fi
+
+ui_print() {
+  echo -e "ui_print $1\nui_print" >> /proc/self/fd/$OUTFD
+}
+
+require_new_magisk() {
+  ui_print "*******************************"
+  ui_print "请安装 Magisk v20.4+!"
+  ui_print "*******************************"
+  exit 1
+}
+
+ui_print " "
+ui_print "**********************************"
+ui_print "     酷安@悲伤压缩包一键隐藏环境"
+ui_print "     支持 KSU & Alpha Magisk"
+ui_print "**********************************"
+
+# 检查 Magisk 版本
+[ $MAGISK_VER_CODE -lt 20400 ] && require_new_magisk
+
+# 提取文件
+ui_print "- 正在提取文件..."
+unzip -o "$ZIPFILE" 'META-INF/*' 'system/*' 'apk/*' 'zip/*' -d $MODPATH >&2
+
+# 设置权限
+set_perm_recursive $MODPATH 0 0 0755 0644
+set_perm_recursive $MODPATH/apk 0 0 0755 0644
+set_perm_recursive $MODPATH/zip 0 0 0755 0644
+
+ui_print "- 安装完成!"
