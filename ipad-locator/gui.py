@@ -860,7 +860,7 @@ class App(tk.Tk):
         presets = tk.Frame(f, bg=CARD)
         presets.grid(row=12, column=0, columnspan=3, sticky="w", pady=(12, 0))
         tk.Label(presets, text="常用：", bg=CARD, fg=SUB, font=(FONT, 9)).pack(side="left")
-        for name, s, cd in (("健走", 0.78, 118), ("慢跑", 0.95, 155), ("常规跑", 1.05, 170), ("快跑", 1.18, 182)):
+        for name, s, cd in (("健走", 0.75, 121), ("慢跑", 0.95, 155), ("常规跑", 1.05, 170), ("快跑", 1.18, 182)):
             ttk.Button(
                 presets, text=name, style="Ghost.TButton",
                 command=lambda s=s, cd=cd: (vars_["stride"].set(str(s)), vars_["cadence"].set(str(cd))),
