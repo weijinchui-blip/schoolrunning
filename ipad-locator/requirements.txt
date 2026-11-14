@@ -1,0 +1,4 @@
+# Windows 10 / 11，Python 3.10+
+pymobiledevice3>=11.55.0
+Pillow>=10.0.0
+requests>=2.31.0

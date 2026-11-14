@@ -1,0 +1,18 @@
+{
+  "favs": {},
+  "speed": "10",
+  "interval": "0.5",
+  "gait": {
+    "stride": 1.05,
+    "cadence": 170.0,
+    "jitter": 2.5,
+    "pause": 0.12
+  },
+  "sim": true,
+  "map_interval": "0.5",
+  "baidu_ak": "",
+  "last": [
+    39.907372,
+    116.391347
+  ]
+}

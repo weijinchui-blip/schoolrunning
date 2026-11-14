@@ -1,0 +1,9 @@
+Package: com.local.sensorspoof
+Name: sensor_spoof
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 回放预生成的传感器数据流（加速度 / 陀螺仪 / 设备运动 / 计步）
+Maintainer: local
+Author: local
+Section: Tweaks
+Depends: ellekit | mobilesubstrate

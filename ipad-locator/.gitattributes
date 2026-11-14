@@ -1,0 +1,8 @@
+# Windows 批处理必须用 CRLF，否则 cmd 解析会出问题
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 图片按二进制处理
+*.png binary
+*.jpg binary
+*.jpeg binary

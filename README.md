@@ -14,6 +14,36 @@
 
 ---
 
+## 0. 配套工具：iPad 定位模拟器（Windows 桌面版）
+
+同一条思路在 iOS 上的实现。区别是 **iOS 不开放基站 / WiFi 列表给 App**，所以那边不靠
+LSPosed 伪造环境，而是走 Apple 官方的 **DVT 开发者通道**（`simulateLocation`，
+和 Xcode 的 Simulate Location 同一条路）：**不越狱、不装描述文件、不开 VPN，插根线就能用**。
+
+| 入口 | 链接 |
+|---|---|
+| 项目说明（功能 / 原理 / 边界） | [`ipad-locator/README.md`](ipad-locator/README.md) |
+| **手把手图文教程（新手从这看）** | [`ipad-locator/教程.md`](ipad-locator/教程.md) |
+| 源码目录 | [`ipad-locator/`](ipad-locator/) |
+
+<img src="ipad-locator/docs/screenshot-map.png" width="760" alt="iPad 定位器 · 手绘轨迹">
+
+两套方案对照：
+
+| | Android（本仓库主线） | iOS（`ipad-locator/`） |
+|---|---|---|
+| 前提 | 解 BL 锁 + Root + LSPosed | 一根数据线 |
+| 定位注入 | 模块 hook 位置服务 | Apple DVT 官方通道 |
+| WiFi / 基站伪造 | ✅ 可伪造（模块接管扫描结果） | ➖ iOS 不开放，无需伪造 |
+| 手绘轨迹 | LocationSpoofer（手机屏幕上画） | 电脑鼠标在地图上画 |
+| 拟真步态 | 靠外部工具 | 内置：步幅×步频 + 噪声 + 停顿 + 自检 |
+| 批量 / 脚本 | — | 自带 CLI，可挂任务计划 |
+
+> 想把两条路的能力边界看清楚，直接看 `ipad-locator/README.md` 里
+> 「能做到什么，做不到什么」那一节——**传感器那一项那边是明确写"做不到"的**，没有夸大。
+
+---
+
 ## 1. 包封装与解密
 
 微信 4.x（`xwechat`）改掉了 3.x 的纯异或封装，换成了 `V1MMWX` 双层结构：
