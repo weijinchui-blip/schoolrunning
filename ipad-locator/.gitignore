@@ -13,3 +13,6 @@ venv/
 build/
 dist/
 *.spec
+
+# 用户自己保存的路线（本地数据，不入库）
+tracks/

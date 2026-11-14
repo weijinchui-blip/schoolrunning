@@ -749,3 +749,136 @@ def parse_csv_points(path: str) -> List[tuple]:
             if -90 <= lat <= 90 and -180 <= lon <= 180:
                 pts.append((lat, lon))
     return pts
+
+
+# ------------------------------------------------------- JSON / 轨迹坐标系
+# 国内 App 导出的轨迹有三种坐标系，混用会整体偏 300~600 米：
+#   wgs  GPS 原始（iPhone / 专业轨迹 App / GPX）
+#   gcj  高德、腾讯、微信内置地图（GCJ-02 火星坐标）
+#   bd09 百度地图
+# LocationSpoofer 这类 App 在安卓上画高德底图时存的就是 gcj，导入时必须换回来。
+CRS_LABELS = {
+    "wgs": "WGS84（GPS 原始 / GPX）",
+    "gcj": "GCJ-02（高德 / 腾讯 / 微信地图）",
+    "bd09": "BD-09（百度地图）",
+}
+
+
+def convert_crs(points: List[tuple], crs: str) -> List[tuple]:
+    """把某个坐标系的点统一转成 WGS84。"""
+    if crs in (None, "", "wgs", "wgs84"):
+        return [(float(a), float(b)) for a, b in points]
+    import geo
+
+    if crs == "gcj":
+        return [geo.gcj02_to_wgs84(float(a), float(b)) for a, b in points]
+    if crs == "bd09":
+        return [geo.bd09_to_wgs84(float(a), float(b)) for a, b in points]
+    raise ValueError(f"不认识的坐标系：{crs}")
+
+
+def _coerce_points(obj) -> List[tuple]:
+    """从各种写法里抠出 [(lat, lon)]。"""
+    out: List[tuple] = []
+    if isinstance(obj, dict):
+        lat = obj.get("lat", obj.get("latitude"))
+        lon = obj.get("lng", obj.get("lon", obj.get("longitude")))
+        if lat is not None and lon is not None:
+            try:
+                return [(float(lat), float(lon))]
+            except (TypeError, ValueError):
+                return []
+        # {"points": [...]} / {"route": [...]}
+        for key in ("points", "route", "path", "track", "coordinates"):
+            if isinstance(obj.get(key), list):
+                for it in obj[key]:
+                    out.extend(_coerce_points(it))
+                if out:
+                    return out
+    elif isinstance(obj, list):
+        if len(obj) >= 2 and all(isinstance(v, (int, float)) for v in obj[:2]):
+            return [(float(obj[0]), float(obj[1]))]
+        for it in obj:
+            out.extend(_coerce_points(it))
+    return out
+
+
+def json_routes(path: str) -> List[Dict[str, Any]]:
+    """
+    读 JSON 轨迹文件，返回 [{name, points, source}]（坐标保持文件原样，未换算）。
+
+    认识三种：
+      1. LocationSpoofer 导出：{"version":4,"savedRoutes":[{"name","pointsJson":"[...]"}]}
+      2. GeoJSON：{"type":"Feature","geometry":{"coordinates":[[lon,lat],...]}}
+      3. 裸数组：[{"lat":..,"lng":..}] / [[lat,lon],...]
+    """
+    import json as _json
+
+    with open(path, "r", encoding="utf-8-sig") as fh:
+        data = _json.load(fh)
+
+    routes: List[Dict[str, Any]] = []
+
+    def push(name: str, pts: List[tuple], source: str) -> None:
+        pts = [(float(a), float(b)) for a, b in pts if -90 <= float(a) <= 90 and -180 <= float(b) <= 180]
+        if len(pts) >= 2:
+            routes.append({"name": name, "points": pts, "source": source})
+
+    if isinstance(data, dict) and isinstance(data.get("savedRoutes"), list):
+        for i, r in enumerate(data["savedRoutes"]):
+            raw = r.get("pointsJson") or r.get("points") or []
+            if isinstance(raw, str):
+                try:
+                    raw = _json.loads(raw)
+                except Exception:
+                    raw = []
+            pts = _coerce_points(raw)
+            push(r.get("name") or f"路线 {i + 1}", pts, "LocationSpoofer")
+        return routes
+
+    if isinstance(data, dict) and data.get("type") == "FeatureCollection":
+        for i, f in enumerate(data.get("features") or []):
+            geom = (f or {}).get("geometry") or {}
+            coords = geom.get("coordinates") or []
+            # GeoJSON 是 [lon, lat] 顺序
+            pts = [(c[1], c[0]) for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+            push((f.get("properties") or {}).get("name") or f"要素 {i + 1}", pts, "GeoJSON")
+        return routes
+
+    if isinstance(data, dict) and (data.get("geometry") or {}).get("coordinates"):
+        coords = data["geometry"]["coordinates"]
+        pts = [(c[1], c[0]) for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+        push("track", pts, "GeoJSON")
+        return routes
+
+    pts = _coerce_points(data)
+    push(os.path.splitext(os.path.basename(path))[0], pts, "JSON")
+    return routes
+
+
+def gpx_text(points: List[tuple], name: str = "track") -> str:
+    """把点导出成 GPX（坐标须为 WGS84）。"""
+    from xml.sax.saxutils import escape
+
+    body = "\n".join(f'      <trkpt lat="{a:.7f}" lon="{b:.7f}"></trkpt>' for a, b in points)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<gpx version="1.1" creator="locator" xmlns="http://www.topografix.com/GPX/1/1">\n'
+        f"  <trk>\n    <name>{escape(name)}</name>\n    <trkseg>\n{body}\n    </trkseg>\n  </trk>\n"
+        "</gpx>\n"
+    )
+
+
+def save_gpx(path: str, points: List[tuple], name: str = "track") -> str:
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(gpx_text(points, name))
+    return path
+
+
+def save_csv(path: str, points: List[tuple]) -> str:
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("lat,lon\n")
+        for a, b in points:
+            fh.write(f"{a:.7f},{b:.7f}\n")
+    return path
+

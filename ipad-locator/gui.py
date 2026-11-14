@@ -128,12 +128,19 @@ class App(tk.Tk):
         self._busy = False
 
         self.cfg = self._load_cfg()
+        self.routes_dir = os.path.join(HERE, "tracks")
+        try:
+            os.makedirs(self.routes_dir, exist_ok=True)
+        except Exception:
+            pass
+        self._last_route_file = ""
         self._build_style()
         self._build_ui()
         self._restore_cfg()
 
         self.after(120, self._drain_log)
         self.after(500, self._tick)
+        self.after(700, self._restore_last_route)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.after(400, self.refresh_devices)
 
@@ -541,7 +548,7 @@ class App(tk.Tk):
 
         # 轨迹文件
         self.frame_track = tk.Frame(self.slot, bg=CARD)
-        self._field_label(self.frame_track, "轨迹文件（.gpx / .csv，两列 纬度,经度）").pack(anchor="w")
+        self._field_label(self.frame_track, "轨迹文件（.gpx / .csv / .json）").pack(anchor="w")
         r3 = tk.Frame(self.frame_track, bg=CARD)
         r3.pack(fill="x", pady=(4, 0))
         self.track_path = tk.StringVar()
@@ -608,21 +615,18 @@ class App(tk.Tk):
 
         self._sep(r1)
 
-        ttk.Button(r1, text="撤销上一点", style="Ghost.TButton",
+        ttk.Button(r1, text="撤销", style="Ghost.TButton",
                    command=lambda: self.mapw.undo()).pack(side="left", padx=(0, 5))
         ttk.Button(r1, text="清空", style="Ghost.TButton",
                    command=lambda: self.mapw.clear()).pack(side="left", padx=(0, 5))
         self.btn_loop = ttk.Button(r1, text="闭合路线", style="Ghost.TButton", command=self._toggle_loop)
         self.btn_loop.pack(side="left", padx=(0, 5))
         ttk.Button(r1, text="居中", style="Ghost.TButton",
-                   command=lambda: self.mapw.fit_points()).pack(side="left")
-
-        self._sep(r1)
-
-        ttk.Button(r1, text="自检", style="Ghost.TButton",
-                   command=self.self_check).pack(side="left", padx=(0, 5))
-        ttk.Button(r1, text="传感器流", style="Ghost.TButton",
-                   command=self.export_sensor).pack(side="left")
+                   command=lambda: self.mapw.fit_points()).pack(side="left", padx=(0, 5))
+        ttk.Button(r1, text="导入路线", style="Ghost.TButton",
+                   command=self.import_route).pack(side="left", padx=(0, 5))
+        ttk.Button(r1, text="保存路线", style="Ghost.TButton",
+                   command=self.save_route).pack(side="left")
 
         r2 = tk.Frame(b, bg=CARD)
         r2.pack(fill="x", pady=(9, 0))
@@ -648,7 +652,12 @@ class App(tk.Tk):
             activebackground=CARD, activeforeground=ACCENT, selectcolor=CARD,
             font=(FONT, 10), highlightthickness=0, bd=0, command=self._sim_toggle,
         ).pack(side="left", padx=(0, 5))
-        ttk.Button(r2, text="参数", style="Ghost.TButton", command=self.gait_dialog).pack(side="left")
+        ttk.Button(r2, text="参数", style="Ghost.TButton", command=self.gait_dialog).pack(
+            side="left", padx=(0, 5))
+        ttk.Button(r2, text="自检", style="Ghost.TButton", command=self.self_check).pack(
+            side="left", padx=(0, 5))
+        ttk.Button(r2, text="传感器流", style="Ghost.TButton", command=self.export_sensor).pack(
+            side="left")
 
         self._sep(r2)
 
@@ -1408,10 +1417,238 @@ class App(tk.Tk):
     def _pick_track(self):
         path = filedialog.askopenfilename(
             title="选择轨迹文件",
-            filetypes=[("轨迹文件", "*.gpx *.csv"), ("GPX", "*.gpx"), ("CSV", "*.csv")],
+            filetypes=[
+                ("轨迹文件", "*.gpx *.csv *.json"),
+                ("GPX", "*.gpx"),
+                ("CSV", "*.csv"),
+                ("LocationSpoofer / JSON", "*.json"),
+            ],
         )
         if path:
             self.track_path.set(path)
+
+    # ---------------------------------------------------------- 导入路线
+    def import_route(self):
+        """把 GPX / CSV / LocationSpoofer 导出的 JSON 直接铺到地图上。"""
+        path = filedialog.askopenfilename(
+            title="导入路线（GPX / CSV / LocationSpoofer 导出的 JSON）",
+            filetypes=[
+                ("轨迹 / 路线文件", "*.gpx *.csv *.json"),
+                ("GPX", "*.gpx"),
+                ("CSV", "*.csv"),
+                ("LocationSpoofer / JSON", "*.json"),
+            ],
+        )
+        if not path:
+            return
+        try:
+            pts, name = self._load_track_file(path)
+        except Exception as exc:  # noqa: BLE001
+            if str(exc) != "已取消":
+                messagebox.showerror("导入失败", f"{type(exc).__name__}: {exc}")
+            return
+        if len(pts) < 2:
+            messagebox.showwarning("没有坐标", "这个文件里没解析出有效坐标点")
+            return
+        self.mapw.set_points(pts)
+        self.mapw.fit_points()
+        total = self.mapw.total_meters()
+        self.log(f"导入路线：{name} · {len(pts)} 个点 · 全长 {total:.0f} 米")
+        saved = self._persist_route(pts, name)
+        self.set_status(
+            f"已导入「{name}」（{total:.0f} 米）" + ("，已存到 tracks/" if saved else "")
+            + "，可以直接点「沿轨迹播放」",
+            OK,
+        )
+
+    # ---------------------------------------------------------- 保存路线
+    @staticmethod
+    def _safe_name(name, count):
+        safe = "".join(c for c in str(name) if c not in '\\/:*?"<>|\r\n\t').strip()
+        safe = safe.replace(" ", "") or "路线"
+        return f"{safe}-{count}点"
+
+    def _persist_route(self, points, name, quiet=False):
+        """把路线落盘到 tracks/，并记进配置，下次打开自动恢复。"""
+        try:
+            path = os.path.join(self.routes_dir, self._safe_name(name, len(points)) + ".gpx")
+            core.save_gpx(path, points, str(name))
+            self._last_route_file = path
+            self._save_cfg()
+            if not quiet:
+                self.log(f"路线已保存：tracks\\{os.path.basename(path)}")
+            return path
+        except Exception as exc:  # noqa: BLE001
+            self.log(f"路线保存失败：{exc}")
+            return ""
+
+    def save_route(self):
+        """把当前画布上的路线另存为 GPX / CSV。"""
+        pts = self.mapw.path_for_play()
+        if len(pts) < 2:
+            messagebox.showwarning("还没有路线", "先在地图上画一条，或者点「导入路线」。")
+            return
+        path = filedialog.asksaveasfilename(
+            title="保存路线",
+            defaultextension=".gpx",
+            initialdir=self.routes_dir,
+            initialfile=self._safe_name("路线", len(pts)) + ".gpx",
+            filetypes=[("GPX 轨迹", "*.gpx"), ("CSV 坐标", "*.csv")],
+        )
+        if not path:
+            return
+        try:
+            if path.lower().endswith(".csv"):
+                core.save_csv(path, pts)
+            else:
+                core.save_gpx(path, pts, os.path.splitext(os.path.basename(path))[0])
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("保存失败", f"{type(exc).__name__}: {exc}")
+            return
+        self._last_route_file = path
+        self._save_cfg()
+        total = self.mapw.total_meters()
+        self.log(f"已保存路线：{path}（{len(pts)} 点 / {total:.0f} 米）")
+        self.set_status(f"路线已保存：{os.path.basename(path)}", OK)
+
+    def _restore_last_route(self):
+        """启动时把上次的路线放回地图，省得每次重画。"""
+        path = (self.cfg.get("last_route") or "").strip()
+        if not path or not os.path.exists(path):
+            return
+        try:
+            if path.lower().endswith(".gpx"):
+                pts = core.parse_gpx(path)
+            elif path.lower().endswith(".csv"):
+                pts = core.parse_csv_points(path)
+            else:
+                pts = []
+            if len(pts) >= 2:
+                self.mapw.set_points(pts)
+                self.mapw.fit_points()
+                self._last_route_file = path
+                self.log(f"已恢复上次的路线：{os.path.basename(path)}（{len(pts)} 点）")
+        except Exception as exc:  # noqa: BLE001
+            self.log(f"上次的路线没能恢复：{exc}")
+
+
+    def _load_track_file(self, path):
+        """读轨迹文件，返回 (WGS84 点列表, 名称)。JSON 会先问坐标系。"""
+        low = path.lower()
+        if low.endswith(".json"):
+            routes = core.json_routes(path)
+            if not routes:
+                raise ValueError("这个 JSON 里没找到坐标数组（支持 LocationSpoofer 导出、GeoJSON、裸点数组）")
+            route = routes[0]
+            if len(routes) > 1:
+                idx = self._choose_route(routes)
+                if idx is None:
+                    raise ValueError("已取消")
+                route = routes[idx]
+            default = "gcj" if route["source"] == "LocationSpoofer" else "wgs"
+            crs = self._ask_crs(default)
+            if crs is None:
+                raise ValueError("已取消")
+            pts = core.convert_crs(route["points"], crs)
+            if crs != "wgs":
+                self.log(f"坐标系：{core.CRS_LABELS[crs]} → WGS84（已换算，可直接下发设备）")
+            return pts, route["name"]
+        if low.endswith(".gpx"):
+            return core.parse_gpx(path), os.path.basename(path)
+        if low.endswith(".csv"):
+            return core.parse_csv_points(path), os.path.basename(path)
+        raise ValueError("只支持 .gpx / .csv / .json")
+
+    def _ask_crs(self, default="gcj"):
+        """问清楚坐标系：选错会整体偏 300~600 米。"""
+        win = tk.Toplevel(self)
+        win.title("这条路线是什么坐标系？")
+        win.configure(bg=CARD)
+        win.transient(self)
+        win.resizable(False, False)
+        win.grab_set()
+
+        f = tk.Frame(win, bg=CARD)
+        f.pack(padx=20, pady=16)
+        tk.Label(f, text="选错会让整条路线偏 300~600 米", bg=CARD, fg=TEXT,
+                 font=(FONT, 11, "bold")).pack(anchor="w")
+        tk.Label(f, text="按你当初画这条线时用的底图来选", bg=CARD, fg=SUB,
+                 font=(FONT, 9)).pack(anchor="w", pady=(2, 10))
+
+        var = tk.StringVar(value=default)
+        for key in ("wgs", "gcj", "bd09"):
+            tk.Radiobutton(
+                f, text=core.CRS_LABELS[key], value=key, variable=var, bg=CARD, fg=TEXT,
+                activebackground=CARD, selectcolor=CARD, font=(FONT, 10),
+                highlightthickness=0, anchor="w",
+            ).pack(fill="x", pady=2)
+
+        tk.Label(
+            f,
+            text="不确定就先按默认选，导入后看地图上的线有没有压在操场上；\n"
+                 "如果整体偏了半公里，就换另一个再导一次。",
+            bg=CARD, fg=SUB, font=(FONT, 8), justify="left",
+        ).pack(anchor="w", pady=(10, 0))
+
+        result = {"v": None}
+        bar = tk.Frame(f, bg=CARD)
+        bar.pack(fill="x", pady=(14, 0))
+
+        def ok():
+            result["v"] = var.get()
+            win.destroy()
+
+        def cancel():
+            win.destroy()
+
+        ttk.Button(bar, text="确定", style="Accent.TButton", command=ok).pack(side="right")
+        ttk.Button(bar, text="取消", style="Ghost.TButton", command=cancel).pack(side="right", padx=(0, 8))
+        self.wait_window(win)
+        return result["v"]
+
+    def _choose_route(self, routes):
+        """一个 JSON 里有多条路线时，让用户挑一条。"""
+        win = tk.Toplevel(self)
+        win.title("选择路线")
+        win.configure(bg=CARD)
+        win.transient(self)
+        win.grab_set()
+
+        f = tk.Frame(win, bg=CARD)
+        f.pack(padx=18, pady=14)
+        tk.Label(f, text=f"这个文件里有 {len(routes)} 条路线", bg=CARD, fg=TEXT,
+                 font=(FONT, 11, "bold")).pack(anchor="w")
+        tk.Label(f, text="双击或选中后点确定", bg=CARD, fg=SUB, font=(FONT, 9)).pack(anchor="w", pady=(2, 8))
+
+        lb = tk.Listbox(f, height=min(8, len(routes)), width=52, font=(FONT, 10),
+                        activestyle="none", selectmode="browse")
+        for i, r in enumerate(routes):
+            pts = r["points"]
+            total = sum(
+                core.haversine(pts[j][0], pts[j][1], pts[j + 1][0], pts[j + 1][1])
+                for j in range(len(pts) - 1)
+            )
+            lb.insert("end", f"{r['name']}    {len(pts)} 点    {total:.0f} 米    [{r['source']}]")
+        lb.selection_set(0)
+        lb.pack(fill="both", expand=True)
+
+        result = {"i": None}
+
+        def ok(_e=None):
+            sel = lb.curselection()
+            if sel:
+                result["i"] = int(sel[0])
+            win.destroy()
+
+        lb.bind("<Double-Button-1>", ok)
+        bar = tk.Frame(f, bg=CARD)
+        bar.pack(fill="x", pady=(12, 0))
+        ttk.Button(bar, text="确定", style="Accent.TButton", command=ok).pack(side="right")
+        ttk.Button(bar, text="取消", style="Ghost.TButton",
+                   command=win.destroy).pack(side="right", padx=(0, 8))
+        self.wait_window(win)
+        return result["i"]
+
 
     def start_walk(self):
         if not self.engine.connected:
@@ -1449,14 +1686,14 @@ class App(tk.Tk):
             elif mode == "track":
                 path = self.track_path.get().strip()
                 if not path:
-                    messagebox.showwarning("没选文件", "先选一个 .gpx 或 .csv 轨迹文件")
+                    messagebox.showwarning("没选文件", "先选一个 .gpx / .csv / .json 轨迹文件")
                     return
-                pts = core.parse_gpx(path) if path.lower().endswith(".gpx") else core.parse_csv_points(path)
+                pts, name = self._load_track_file(path)
                 if len(pts) < 2:
                     messagebox.showwarning("文件里没有坐标", "这个文件没解析出有效坐标点")
                     return
                 self.walker.walk_points(pts, interval=interval)
-                self.move_hint.configure(text=f"回放 {len(pts)} 个点", fg=OK)
+                self.move_hint.configure(text=f"回放「{name}」：{len(pts)} 个点", fg=OK)
             else:
                 center = self.read_coords()
                 try:
@@ -1568,6 +1805,7 @@ class App(tk.Tk):
                 "pause": float(g.get("pause", 0.12)),
             }
         self.map_interval.set(str(self.cfg.get("map_interval", self.interval.get())))
+        self._last_route_file = (self.cfg.get("last_route") or "").strip()
         try:
             self.sim_on.set(bool(self.cfg.get("sim", True)))
         except Exception:
@@ -1591,6 +1829,7 @@ class App(tk.Tk):
                 data["baidu_ak"] = self.cfg.get("baidu_ak", "")
             except Exception:
                 pass
+            data["last_route"] = self._last_route_file
             try:
                 data["last"] = list(self.read_coords())
             except ValueError:

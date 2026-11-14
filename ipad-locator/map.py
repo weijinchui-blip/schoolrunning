@@ -21,6 +21,44 @@ import core
 TILE = 256
 CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tiles")
 
+# ---------------------------------------------------------------- 瓦片下载
+# 有人机器上挂着代理/VPN，代理时通时不通（实测会返回 503），表现为地图一片灰、
+# 一直显示"正在加载"。所以这里：先走系统代理，代理类报错就永久切直连，再失败重试两次。
+_session = None
+_session_direct = None
+_prefer_direct = False
+
+
+def _http_get(url: str, timeout: float = 12.0) -> bytes:
+    import requests
+
+    global _session, _session_direct, _prefer_direct
+    headers = {"User-Agent": "Mozilla/5.0 iPadLocator/1.0"}
+
+    def fetch(sess):
+        r = sess.get(url, timeout=timeout, headers=headers)
+        r.raise_for_status()
+        return r.content
+
+    if _prefer_direct:
+        if _session_direct is None:
+            _session_direct = requests.Session()
+            _session_direct.trust_env = False       # 忽略 http_proxy 环境变量
+        return fetch(_session_direct)
+    try:
+        if _session is None:
+            _session = requests.Session()
+        return fetch(_session)
+    except Exception as exc:  # noqa: BLE001
+        text = f"{type(exc).__name__} {exc}".lower()
+        if "proxy" in text or "tunnel" in text:
+            _prefer_direct = True
+            if _session_direct is None:
+                _session_direct = requests.Session()
+                _session_direct.trust_env = False
+            return fetch(_session_direct)
+        raise
+
 CARD = "#FFFFFF"
 BORDER = "#E2E6EC"
 TEXT = "#1F2328"
@@ -87,6 +125,7 @@ class MapCanvas(tk.Frame):
 
         self._imgs = {}
         self._inflight = set()
+        self._tries = {}
         self._lock = threading.Lock()
         self._drag = None
         self._moved = False
@@ -147,6 +186,21 @@ class MapCanvas(tk.Frame):
         self.points.append((lat, lon))
         if redraw:
             self.redraw()
+
+    def set_points(self, points, closed=None):
+        """整批导入轨迹点（WGS84），首尾靠得近就自动当闭环。"""
+        pts = [(float(a), float(b)) for a, b in points]
+        self.points = pts
+        if closed is None:
+            if len(pts) >= 3:
+                gap = core.haversine(pts[0][0], pts[0][1], pts[-1][0], pts[-1][1])
+                self.closed = gap < 15.0
+            else:
+                self.closed = False
+        else:
+            self.closed = bool(closed)
+        self.redraw()
+        self.on_status(f"已导入 {len(pts)} 个点{ '（闭环）' if self.closed else '' }")
 
     def undo(self):
         if self.points:
@@ -412,34 +466,38 @@ class MapCanvas(tk.Frame):
     def _fetch_tile(self, key, tx, ty):
         name, z, _, _ = key
         layer = next((v for v in LAYERS.values() if v["key"] == name), None)
+        ok = False
+        tries = 0
         try:
             if layer is None:
                 return
             url = layer["url"].format(x=tx, y=ty, z=z, s=(layer.get("sub") or ["1"])[(tx + ty) % len(layer.get("sub") or ["1"])])
-            data = None
-            try:
-                import requests
-
-                r = requests.get(url, timeout=12, headers={"User-Agent": "Mozilla/5.0 iPadLocator/1.0"})
-                if r.status_code == 200 and r.content:
-                    data = r.content
-                    ext = ".png" if b"PNG" in data[:8] else ".jpg"
-            except Exception:
-                data = None
+            data = _http_get(url)
             if not data:
-                return
+                raise OSError("空响应")
+            ext = ".png" if b"PNG" in data[:8] else ".jpg"
             p = os.path.join(CACHE, name, str(z), f"{tx}_{ty}{ext}")
             os.makedirs(os.path.dirname(p), exist_ok=True)
             tmp = p + ".tmp"
             with open(tmp, "wb") as fh:
                 fh.write(data)
             os.replace(tmp, p)
-            self.ui_post(self.redraw)
-        except Exception:
-            pass
+            ok = True
+        except Exception:  # noqa: BLE001
+            ok = False
         finally:
             with self._lock:
                 self._inflight.discard(key)
+                tries = self._tries.get(key, 0) + 1
+                self._tries[key] = tries
+        if ok:
+            self.ui_post(self.redraw)
+        elif tries <= 3:
+            # 网络抖动/代理故障：退避重试，避免地图一直卡在灰色占位
+            try:
+                self.ui_post(lambda: self.after(1200, self.redraw))
+            except Exception:
+                pass
 
     # ---------------------------------------------------------------- 交互
     def _on_press(self, ev):

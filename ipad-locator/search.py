@@ -23,10 +23,24 @@ UA = (
 TIMEOUT = 12
 
 
+_direct_session = None
+
+
 def _get(url, **kw):
+    """带代理兜底：系统代理报错（常见于挂着 VPN）就切直连重试一次。"""
+    global _direct_session
     headers = dict(kw.pop("headers", {}))
     headers.setdefault("User-Agent", UA)
-    return requests.get(url, headers=headers, timeout=TIMEOUT, **kw)
+    try:
+        return requests.get(url, headers=headers, timeout=TIMEOUT, **kw)
+    except requests.exceptions.RequestException as exc:
+        text = f"{type(exc).__name__} {exc}".lower()
+        if "proxy" not in text and "tunnel" not in text:
+            raise
+        if _direct_session is None:
+            _direct_session = requests.Session()
+            _direct_session.trust_env = False
+        return _direct_session.get(url, headers=headers, timeout=TIMEOUT, **kw)
 
 
 # ------------------------------------------------------------------ 百度：AK
